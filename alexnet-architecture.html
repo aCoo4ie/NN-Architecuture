@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlexNet Architecture Interactive Visualization</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-green: #22c55e;
+            --accent-yellow: #fbbf24;
+            --accent-red: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .year-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .architecture-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 20px 0;
+        }
+
+        .stream-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .stream-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .layer-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .layer {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .layer:hover {
+            transform: translateY(-4px);
+        }
+
+        .layer-box {
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid;
+            position: relative;
+            min-width: 120px;
+            text-align: center;
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .layer-box:hover {
+            box-shadow: 0 8px 32px rgba(249, 115, 22, 0.2);
+        }
+
+        .layer-box.input { border-color: var(--accent-cyan); }
+        .layer-box.conv { border-color: var(--accent-purple); }
+        .layer-box.pool { border-color: var(--accent-orange); }
+        .layer-box.lrn { border-color: var(--accent-yellow); }
+        .layer-box.fc { border-color: var(--accent-green); }
+        .layer-box.dropout { border-color: var(--accent-red); }
+        .layer-box.output { border-color: var(--accent-pink); }
+
+        .layer-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .layer-details {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .layer-info {
+            position: absolute;
+            left: 50%;
+            bottom: -8px;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .layer:hover .layer-info {
+            opacity: 1;
+            bottom: -40px;
+        }
+
+        .feature-map {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            justify-content: center;
+            margin-top: 8px;
+            padding: 4px;
+            max-width: 80px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-cell {
+            width: 6px;
+            height: 6px;
+            border-radius: 2px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .arrow {
+            color: var(--text-muted);
+            font-size: 1.3rem;
+        }
+
+        .parallel-streams {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .parallel-streams {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .gpu-stream {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .gpu-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent-cyan);
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 30px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent-orange);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .info-card {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        .info-card:hover {
+            background: rgba(249, 115, 22, 0.1);
+            transform: translateX(4px);
+        }
+
+        .info-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .info-card p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-orange);
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            flex: 1;
+            min-width: 120px;
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .detail-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .detail-view.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .detail-content {
+            background: var(--bg-secondary);
+            padding: 32px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--bg-tertiary);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .detail-view.active .detail-content {
+            transform: scale(1);
+        }
+
+        .detail-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        .detail-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .detail-specs {
+            display: grid;
+            gap: 12px;
+        }
+
+        .detail-spec {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .detail-spec-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-spec-value {
+            font-weight: 500;
+            color: var(--accent-orange);
+        }
+
+        .innovation-tag {
+            display: inline-block;
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: var(--accent-yellow);
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .layer-box { padding: 10px 14px; min-width: 90px; }
+            .arrow { display: none; }
+            .parallel-streams { gap: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AlexNet Architecture</h1>
+            <p class="subtitle">Deep Convolutional Neural Network for Image Classification</p>
+            <span class="year-badge">2012 • ImageNet Winner</span>
+        </header>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="animateFlow()">▶ Animate Data Flow</button>
+            <button class="btn btn-secondary" onclick="resetAnimation()">↺ Reset</button>
+        </div>
+
+        <div class="architecture-container">
+            <!-- Input Section -->
+            <div class="layer-row" style="justify-content: center; margin-bottom: 10px;">
+                <div class="layer" onclick="showDetail('input')">
+                    <div class="layer-box input">
+                        <div class="layer-name">Input</div>
+                        <div class="layer-details">227×227×3 RGB</div>
+                        <div class="feature-map" style="max-width: 40px;">
+                            <div class="feature-cell" style="background: var(--accent-cyan);"></div>
+                        </div>
+                        <div class="layer-info">ImageNet images</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- Conv1 -->
+                <div class="layer" onclick="showDetail('conv1')">
+                    <div class="layer-box conv">
+                        <div class="layer-name">Conv1</div>
+                        <div class="layer-details">96 kernels</div>
+                        <div class="feature-map" style="max-width: 60px;">
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                        </div>
+                        <div class="layer-info">11×11, stride 4, ReLU</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- MaxPool1 -->
+                <div class="layer" onclick="showDetail('maxpool1')">
+                    <div class="layer-box pool">
+                        <div class="layer-name">MaxPool1</div>
+                        <div class="layer-details">3×3 stride 2</div>
+                        <div class="layer-info">55→27 spatial reduction</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- LRN1 -->
+                <div class="layer" onclick="showDetail('lrn1')">
+                    <div class="layer-box lrn">
+                        <div class="layer-name">LRN1</div>
+                        <div class="layer-details">Local Response</div>
+                        <div class="innovation-tag">✨ GPU Training</div>
+                        <div class="layer-info">k=2, n=5, α=1e-4, β=0.75</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Two GPU Streams -->
+            <div class="parallel-streams">
+                <!-- GPU 1 Stream -->
+                <div class="gpu-stream">
+                    <div class="gpu-label">🟢 GPU 1</div>
+                    
+                    <div class="layer-row">
+                        <!-- Conv2 -->
+                        <div class="layer" onclick="showDetail('conv2_gpu1')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv2</div>
+                                <div class="layer-details">48 kernels</div>
+                                <div class="layer-info">5×5, stride 1, padding 2</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+
+                        <!-- MaxPool2 -->
+                        <div class="layer" onclick="showDetail('maxpool2')">
+                            <div class="layer-box pool">
+                                <div class="layer-name">MaxPool2</div>
+                                <div class="layer-info">27→13 spatial</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+
+                        <!-- LRN2 -->
+                        <div class="layer" onclick="showDetail('lrn2')">
+                            <div class="layer-box lrn">
+                                <div class="layer-name">LRN2</div>
+                                <div class="layer-info">Local Response Norm</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-row" style="margin-top: 12px;">
+                        <!-- Conv3 -->
+                        <div class="layer" onclick="showDetail('conv3')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv3</div>
+                                <div class="layer-details">256 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+
+                        <!-- Conv4 -->
+                        <div class="layer" onclick="showDetail('conv4_gpu1')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv4</div>
+                                <div class="layer-details">192 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+
+                        <!-- Conv5 -->
+                        <div class="layer" onclick="showDetail('conv5_gpu1')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv5</div>
+                                <div class="layer-details">128 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+
+                        <!-- MaxPool3 -->
+                        <div class="layer" onclick="showDetail('maxpool3')">
+                            <div class="layer-box pool">
+                                <div class="layer-name">MaxPool3</div>
+                                <div class="layer-info">13→6 spatial</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GPU 2 Stream (same structure mirrored) -->
+                <div class="gpu-stream">
+                    <div class="gpu-label">🔵 GPU 2</div>
+                    
+                    <div class="layer-row">
+                        <div class="layer" onclick="showDetail('conv2_gpu2')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv2</div>
+                                <div class="layer-details">48 kernels</div>
+                                <div class="layer-info">5×5, stride 1, padding 2</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="layer" onclick="showDetail('maxpool2')">
+                            <div class="layer-box pool">
+                                <div class="layer-name">MaxPool2</div>
+                                <div class="layer-info">27→13 spatial</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="layer" onclick="showDetail('lrn2')">
+                            <div class="layer-box lrn">
+                                <div class="layer-name">LRN2</div>
+                                <div class="layer-info">Local Response Norm</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layer-row" style="margin-top: 12px;">
+                        <div class="layer" onclick="showDetail('conv3')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv3</div>
+                                <div class="layer-details">256 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="layer" onclick="showDetail('conv4_gpu2')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv4</div>
+                                <div class="layer-details">192 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="layer" onclick="showDetail('conv5_gpu2')">
+                            <div class="layer-box conv">
+                                <div class="layer-name">Conv5</div>
+                                <div class="layer-details">128 kernels</div>
+                                <div class="layer-info">3×3, padding 1</div>
+                            </div>
+                        </div>
+                        <span class="arrow">→</span>
+                        <div class="layer" onclick="showDetail('maxpool3')">
+                            <div class="layer-box pool">
+                                <div class="layer-name">MaxPool3</div>
+                                <div class="layer-info">13→6 spatial</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FC Layers -->
+            <div class="layer-row" style="justify-content: center; margin-top: 10px;">
+                <!-- Flatten -->
+                <div class="layer" onclick="showDetail('flatten')">
+                    <div class="layer-box fc">
+                        <div class="layer-name">Flatten</div>
+                        <div class="layer-details">6×6×256</div>
+                        <div class="layer-info">9216 features</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- FC6 -->
+                <div class="layer" onclick="showDetail('fc6')">
+                    <div class="layer-box fc">
+                        <div class="layer-name">FC6</div>
+                        <div class="layer-details">4096 neurons</div>
+                        <div class="layer-info">ReLU + Dropout</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- FC7 -->
+                <div class="layer" onclick="showDetail('fc7')">
+                    <div class="layer-box fc">
+                        <div class="layer-name">FC7</div>
+                        <div class="layer-details">4096 neurons</div>
+                        <div class="layer-info">ReLU + Dropout</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- FC8 / Output -->
+                <div class="layer" onclick="showDetail('output')">
+                    <div class="layer-box output">
+                        <div class="layer-name">FC8 / Output</div>
+                        <div class="layer-details">1000 classes</div>
+                        <div class="layer-info">Softmax</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">61M</div>
+                <div class="stat-label">Parameters</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">8</div>
+                <div class="stat-label">Convolutional Layers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Fully Connected</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">2</div>
+                <div class="stat-label">GPUs Used</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">15.3%</div>
+                <div class="stat-label">Top-5 Error</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-title">Key Innovations</h2>
+            <div class="info-grid">
+                <div class="info-card" onclick="showDetail('conv1')">
+                    <h3>🚀 ReLU Activation</h3>
+                    <p>First CNN to use ReLU (Rectified Linear Unit) instead of tanh/sigmoid. Speedup training by 6x.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('fc6')">
+                    <h3>📉 Dropout Regularization</h3>
+                    <p>Introduced dropout to prevent overfitting. Randomly sets 50% of neurons to zero during training.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('maxpool1')">
+                    <h3>⚡ Overlapping Pooling</h3>
+                    <p>Used stride 2 with 3×3 windows (overlapping) instead of traditional non-overlapping pooling.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('conv2_gpu1')">
+                    <h3>🖥️ GPU Training</h3>
+                    <p>Pioneered training on GPUs - trained on 2 NVIDIA GTX 580 GPUs for 5-6 days.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('lrn1')">
+                    <h3>🔄 Local Response Normalization</h3>
+                    <p>Inspired by biological neurons. Helps generalization but later found not essential.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('data_aug')">
+                    <h3>🖼️ Data Augmentation</h3>
+                    <p>Used random cropping and horizontal flipping to artificially expand training data.</p>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-cyan);"></div>
+                    <span>Input</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-purple);"></div>
+                    <span>Convolution</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-orange);"></div>
+                    <span>Max Pooling</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-yellow);"></div>
+                    <span>LRN</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-green);"></div>
+                    <span>Fully Connected</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-pink);"></div>
+                    <span>Output</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="detail-view" id="detailView" onclick="closeDetail(event)">
+        <div class="detail-content">
+            <button class="detail-close" onclick="closeDetail()">×</button>
+            <h2 class="detail-title" id="detailTitle">Layer Details</h2>
+            <div class="detail-specs" id="detailSpecs"></div>
+        </div>
+    </div>
+
+    <script>
+        const layerData = {
+            input: {
+                title: 'Input Layer (227×227×3)',
+                specs: [
+                    { label: 'Dimensions', value: '227 × 227 × 3 RGB' },
+                    { label: 'Total Pixels', value: '227 × 227 × 3 = 154,587' },
+                    { label: 'Preprocessing', value: 'Mean subtraction' },
+                    { label: 'Dataset', value: 'ImageNet (1.2M images)' }
+                ]
+            },
+            conv1: {
+                title: 'Conv1 - First Convolutional Layer',
+                specs: [
+                    { label: 'Kernels', value: '96 (11×11)' },
+                    { label: 'Stride', value: '4' },
+                    { label: 'Output', value: '55 × 55 × 96' },
+                    { label: 'Parameters', value: '34,848 (96×11×11×3 + 96)' },
+                    { label: 'Activation', value: 'ReLU' },
+                    { label: 'Innovation', value: 'First large-scale ReLU in CNN' }
+                ]
+            },
+            maxpool1: {
+                title: 'MaxPool1 - First Pooling',
+                specs: [
+                    { label: 'Window', value: '3×3' },
+                    { label: 'Stride', value: '2' },
+                    { label: 'Input', value: '55×55×96' },
+                    { label: 'Output', value: '27×27×96' },
+                    { label: 'Type', value: 'Overlapping Max Pooling' }
+                ]
+            },
+            lrn1: {
+                title: 'LRN1 - Local Response Normalization',
+                specs: [
+                    { label: 'Parameters', value: 'k=2, n=5, α=1e-4, β=0.75' },
+                    { label: 'Purpose', value: 'Create competition between neurons' },
+                    { label: 'Inspiration', value: 'Biological lateral inhibition' },
+                    { label: 'Status', value: 'Rarely used in modern CNNs' }
+                ]
+            },
+            conv2_gpu1: {
+                title: 'Conv2 - GPU 1 (48 kernels)',
+                specs: [
+                    { label: 'Kernels', value: '48' },
+                    { label: 'Kernel Size', value: '5×5' },
+                    { label: 'Padding', value: '2 (same)' },
+                    { label: 'Output', value: '27×27×48' },
+                    { label: 'Parameters', value: '5×5×48×96 + 48 = 61456' },
+                    { label: 'Activation', value: 'ReLU' }
+                ]
+            },
+            conv2_gpu2: {
+                title: 'Conv2 - GPU 2 (48 kernels)',
+                specs: [
+                    { label: 'Kernels', value: '48' },
+                    { label: 'Kernel Size', value: '5×5' },
+                    { label: 'Padding', value: '2 (same)' },
+                    { label: 'Output', value: '27×27×48' },
+                    { label: 'Parameters', value: '5×5×48×96 + 48 = 61456' },
+                    { label: 'GPU', value: 'Second GPU' }
+                ]
+            },
+            maxpool2: {
+                title: 'MaxPool2',
+                specs: [
+                    { label: 'Window', value: '3×3' },
+                    { label: 'Stride', value: '2' },
+                    { label: 'Input', value: '27×27×96' },
+                    { label: 'Output', value: '13×13×96' }
+                ]
+            },
+            lrn2: {
+                title: 'LRN2',
+                specs: [
+                    { label: 'Parameters', value: 'Same as LRN1' },
+                    { label: 'Purpose', value: 'Normalization after Conv2' },
+                    { label: 'Effect', value: 'Slight improvement in generalization' }
+                ]
+            },
+            conv3: {
+                title: 'Conv3 - Third Convolutional Layer',
+                specs: [
+                    { label: 'Kernels', value: '256' },
+                    { label: 'Kernel Size', value: '3×3' },
+                    { label: 'Padding', value: '1 (same)' },
+                    { label: 'Input', value: '13×13×96 (both GPUs)' },
+                    { label: 'Output', value: '13×13×256' },
+                    { label: 'Parameters', value: '3×3×256×96 + 256 = 221,440' }
+                ]
+            },
+            conv4_gpu1: {
+                title: 'Conv4 - GPU 1',
+                specs: [
+                    { label: 'Kernels', value: '192' },
+                    { label: 'Kernel Size', value: '3×3' },
+                    { label: 'Output', value: '13×13×192' },
+                    { label: 'Cross-GPU', value: 'Communicates with GPU 2' },
+                    { label: 'Parameters', value: '3×3×192×256 + 192 = 354,816' }
+                ]
+            },
+            conv4_gpu2: {
+                title: 'Conv4 - GPU 2',
+                specs: [
+                    { label: 'Kernels', value: '192' },
+                    { label: 'Kernel Size', value: '3×3' },
+                    { label: 'Output', value: '13×13×192' },
+                    { label: 'Cross-GPU', value: 'Communicates with GPU 1' },
+                    { label: 'Parameters', value: '3×3×192×256 + 192 = 354,816' }
+                ]
+            },
+            conv5_gpu1: {
+                title: 'Conv5 - GPU 1',
+                specs: [
+                    { label: 'Kernels', value: '128' },
+                    { label: 'Kernel Size', value: '3×3' },
+                    { label: 'Output', value: '13×13×128' },
+                    { label: 'Parameters', value: '3×3×128×192 + 128 = 221,440' }
+                ]
+            },
+            conv5_gpu2: {
+                title: 'Conv5 - GPU 2',
+                specs: [
+                    { label: 'Kernels', value: '128' },
+                    { label: 'Kernel Size', value: '3×3' },
+                    { label: 'Output', value: '13×13×128' },
+                    { label: 'Parameters', value: '3×3×128×192 + 128 = 221,440' }
+                ]
+            },
+            maxpool3: {
+                title: 'MaxPool3',
+                specs: [
+                    { label: 'Window', value: '3×3' },
+                    { label: 'Stride', value: '2' },
+                    { label: 'Input', value: '13×13×256' },
+                    { label: 'Output', value: '6×6×256' },
+                    { label: 'Total Features', value: '6 × 6 × 256 = 9216' }
+                ]
+            },
+            flatten: {
+                title: 'Flatten Layer',
+                specs: [
+                    { label: 'Input', value: '6 × 6 × 256 tensor' },
+                    { label: 'Output', value: '9216 dimensional vector' },
+                    { label: 'Operation', value: 'Reshape to 1D' },
+                    { label: 'Next Layer', value: 'FC6 (4096)' }
+                ]
+            },
+            fc6: {
+                title: 'FC6 - First Fully Connected',
+                specs: [
+                    { label: 'Neurons', value: '4096' },
+                    { label: 'Input', value: '9216' },
+                    { label: 'Output', value: '4096' },
+                    { label: 'Parameters', value: '9216 × 4096 + 4096 = 37,748,736' },
+                    { label: 'Activation', value: 'ReLU' },
+                    { label: 'Regularization', value: 'Dropout (0.5)' }
+                ]
+            },
+            fc7: {
+                title: 'FC7 - Second Fully Connected',
+                specs: [
+                    { label: 'Neurons', value: '4096' },
+                    { label: 'Input', value: '4096' },
+                    { label: 'Output', value: '4096' },
+                    { label: 'Parameters', value: '4096 × 4096 + 4096 = 16,777,216' },
+                    { label: 'Activation', value: 'ReLU' },
+                    { label: 'Regularization', value: 'Dropout (0.5)' }
+                ]
+            },
+            output: {
+                title: 'FC8 / Output - Classifier',
+                specs: [
+                    { label: 'Neurons', value: '1000' },
+                    { label: 'Classes', value: 'ImageNet categories' },
+                    { label: 'Parameters', value: '4096 × 1000 + 1000 = 4,097,000' },
+                    { label: 'Activation', value: 'Softmax' },
+                    { label: 'Top-5 Error', value: '15.3% (vs 26.2% for 2nd)' }
+                ]
+            },
+            data_aug: {
+                title: 'Data Augmentation',
+                specs: [
+                    { label: 'Method 1', value: 'Random 224×224 patches from 256×256' },
+                    { label: 'Method 2', value: 'Horizontal flipping' },
+                    { label: 'Effect', value: '2048x data augmentation' },
+                    { label: 'Label Distortion', value: 'PCA color augmentation' },
+                    { label: 'Impact', value: 'Significant overfitting reduction' }
+                ]
+            }
+        };
+
+        function showDetail(layerId) {
+            const data = layerData[layerId];
+            if (!data) return;
+
+            document.getElementById('detailTitle').textContent = data.title;
+            
+            const specsHtml = data.specs.map(spec => `
+                <div class="detail-spec">
+                    <span class="detail-spec-label">${spec.label}</span>
+                    <span class="detail-spec-value">${spec.value}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('detailSpecs').innerHTML = specsHtml;
+            document.getElementById('detailView').classList.add('active');
+        }
+
+        function closeDetail(event) {
+            if (event && event.target !== document.getElementById('detailView')) return;
+            document.getElementById('detailView').classList.remove('active');
+        }
+
+        let isAnimating = false;
+
+        function animateFlow() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            const layers = document.querySelectorAll('.layer-box');
+            let delay = 0;
+
+            layers.forEach((layer, index) => {
+                setTimeout(() => {
+                    layer.style.transform = 'scale(1.1)';
+                    layer.style.boxShadow = '0 0 30px var(--accent-orange)';
+                    
+                    setTimeout(() => {
+                        layer.style.transform = '';
+                        layer.style.boxShadow = '';
+                    }, 400);
+                }, delay);
+                delay += 200;
+            });
+
+            setTimeout(() => {
+                isAnimating = false;
+            }, delay);
+        }
+
+        function resetAnimation() {
+            const layers = document.querySelectorAll('.layer-box');
+            layers.forEach(layer => {
+                layer.style.transform = '';
+                layer.style.boxShadow = '';
+            });
+            isAnimating = false;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDetail();
+            if (e.key === ' ') { e.preventDefault(); animateFlow(); }
+        });
+    </script>
+</body>
+</html>
