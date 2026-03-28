@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeNet Architecture Interactive Visualization</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-green: #22c55e;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .architecture-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 20px 0;
+        }
+
+        .layer-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .layer {
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .layer:hover {
+            transform: translateY(-4px);
+        }
+
+        .layer-box {
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid;
+            position: relative;
+            min-width: 140px;
+            text-align: center;
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .layer-box:hover {
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+        }
+
+        .layer-box.input { border-color: var(--accent-cyan); }
+        .layer-box.conv { border-color: var(--accent-purple); }
+        .layer-box.pool { border-color: var(--accent-orange); }
+        .layer-box.fc { border-color: var(--accent-green); }
+        .layer-box.output { border-color: var(--accent-pink); }
+
+        .layer-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .layer-details {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .layer-info {
+            position: absolute;
+            left: 50%;
+            bottom: -8px;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .layer:hover .layer-info {
+            opacity: 1;
+            bottom: -40px;
+        }
+
+        .arrow {
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        .feature-map {
+            width: 50px;
+            height: 50px;
+            display: grid;
+            gap: 2px;
+            padding: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin: 8px auto 0;
+        }
+
+        .feature-map.c1 { grid-template-columns: repeat(2, 1fr); }
+        .feature-map.s2 { grid-template-columns: repeat(2, 1fr); }
+        .feature-map.c3 { grid-template-columns: repeat(4, 1fr); }
+        .feature-map.s4 { grid-template-columns: repeat(4, 1fr); }
+        .feature-map.c5 { grid-template-columns: repeat(10, 1fr); }
+        .feature-map.f6 { grid-template-columns: repeat(7, 1fr); }
+        .feature-map.output { grid-template-columns: repeat(5, 1fr); }
+
+        .feature-cell {
+            border-radius: 2px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 30px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--accent-cyan);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+        }
+
+        .info-card {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .info-card:hover {
+            background: rgba(139, 92, 246, 0.1);
+            transform: translateX(4px);
+        }
+
+        .info-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .info-card p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--bg-tertiary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            flex: 1;
+            min-width: 120px;
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .hidden { display: none; }
+
+        .detail-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .detail-view.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .detail-content {
+            background: var(--bg-secondary);
+            padding: 32px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--bg-tertiary);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .detail-view.active .detail-content {
+            transform: scale(1);
+        }
+
+        .detail-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        .detail-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .detail-specs {
+            display: grid;
+            gap: 12px;
+        }
+
+        .detail-spec {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+        }
+
+        .detail-spec-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-spec-value {
+            font-weight: 500;
+            color: var(--accent-cyan);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .layer-box { padding: 12px 16px; min-width: 100px; }
+            .arrow { display: none; }
+            .feature-map { width: 35px; height: 35px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LeNet-5 Architecture</h1>
+            <p class="subtitle">Interactive Visualization of the Classic CNN for Handwritten Digit Recognition</p>
+        </header>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="animateFlow()">▶ Animate Data Flow</button>
+            <button class="btn btn-secondary" onclick="resetAnimation()">↺ Reset</button>
+            <button class="btn btn-secondary" onclick="toggleLabels()">🔤 Toggle Labels</button>
+        </div>
+
+        <div class="architecture-container" id="architecture">
+            <!-- Layer 1: Input -->
+            <div class="layer-row">
+                <div class="layer" onclick="showDetail('input')">
+                    <div class="layer-box input">
+                        <div class="layer-name">Input</div>
+                        <div class="layer-details">32×32 Grayscale</div>
+                        <div class="feature-map">
+                            <div class="feature-cell" style="background: var(--accent-cyan);"></div>
+                        </div>
+                        <div class="layer-info">Raw pixel values 0-255</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- C1: Conv1 -->
+                <div class="layer" onclick="showDetail('c1')">
+                    <div class="layer-box conv">
+                        <div class="layer-name">C1</div>
+                        <div class="layer-details">Convolution</div>
+                        <div class="feature-map c1">
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple); animation-delay: 0.1s;"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple); animation-delay: 0.2s;"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple); animation-delay: 0.3s;"></div>
+                        </div>
+                        <div class="layer-info">6 feature maps, 28×28</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- S2: Pool1 -->
+                <div class="layer" onclick="showDetail('s2')">
+                    <div class="layer-box pool">
+                        <div class="layer-name">S2</div>
+                        <div class="layer-details">Subsampling</div>
+                        <div class="feature-map s2">
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange); animation-delay: 0.1s;"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange); animation-delay: 0.2s;"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange); animation-delay: 0.3s;"></div>
+                        </div>
+                        <div class="layer-info">6 maps, 14×14, 2×2 stride</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- C3: Conv2 -->
+                <div class="layer" onclick="showDetail('c3')">
+                    <div class="layer-box conv">
+                        <div class="layer-name">C3</div>
+                        <div class="layer-details">Convolution</div>
+                        <div class="feature-map c3">
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                            <div class="feature-cell" style="background: var(--accent-purple);"></div>
+                        </div>
+                        <div class="layer-info">16 feature maps, 10×10</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- S4: Pool2 -->
+                <div class="layer" onclick="showDetail('s4')">
+                    <div class="layer-box pool">
+                        <div class="layer-name">S4</div>
+                        <div class="layer-details">Subsampling</div>
+                        <div class="feature-map s4">
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                            <div class="feature-cell" style="background: var(--accent-orange);"></div>
+                        </div>
+                        <div class="layer-info">16 maps, 5×5, 2×2 stride</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- C5: Conv3/FC -->
+                <div class="layer" onclick="showDetail('c5')">
+                    <div class="layer-box fc">
+                        <div class="layer-name">C5</div>
+                        <div class="layer-details">Fully Connected</div>
+                        <div class="feature-map c5">
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                        </div>
+                        <div class="layer-info">120 neurons</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- F6: FC -->
+                <div class="layer" onclick="showDetail('f6')">
+                    <div class="layer-box fc">
+                        <div class="layer-name">F6</div>
+                        <div class="layer-details">Fully Connected</div>
+                        <div class="feature-map f6">
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                            <div class="feature-cell" style="background: var(--accent-green);"></div>
+                        </div>
+                        <div class="layer-info">84 neurons</div>
+                    </div>
+                </div>
+                <span class="arrow">→</span>
+
+                <!-- Output -->
+                <div class="layer" onclick="showDetail('output')">
+                    <div class="layer-box output">
+                        <div class="layer-name">Output</div>
+                        <div class="layer-details">Softmax (10)</div>
+                        <div class="feature-map output">
+                            <div class="feature-cell" style="background: var(--accent-pink);"></div>
+                            <div class="feature-cell" style="background: var(--accent-pink);"></div>
+                            <div class="feature-cell" style="background: var(--accent-pink);"></div>
+                            <div class="feature-cell" style="background: var(--accent-pink);"></div>
+                            <div class="feature-cell" style="background: var(--accent-pink);"></div>
+                        </div>
+                        <div class="layer-info">10 digits (0-9)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">60K</div>
+                <div class="stat-label">Total Parameters</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Convolutional Layers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Fully Connected Layers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">1998</div>
+                <div class="stat-label">Year Introduced</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-title">Layer Details</h2>
+            <div class="info-grid">
+                <div class="info-card" onclick="showDetail('input')">
+                    <h3>📥 Input Layer (32×32)</h3>
+                    <p>Raw grayscale images of handwritten digits. Each pixel value normalized to [0,1] range.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('c1')">
+                    <h3>🔵 C1 - Conv Layer</h3>
+                    <p>6 filters of size 5×5, produces 6 feature maps of 28×28. Each filter extracts local features.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('s2')">
+                    <h3>🟠 S2 - Subsampling</h3>
+                    <p>2×2 average pooling with stride 2. Reduces spatial dimensions while retaining important features.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('c3')">
+                    <h3>🟣 C3 - Conv Layer</h3>
+                    <p>16 filters of size 5×5, connected to all 6 S2 maps. Creates more complex feature combinations.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('s4')">
+                    <h3>🟠 S4 - Subsampling</h3>
+                    <p>2×2 average pooling with stride 2. Further reduces dimensions to 5×5 for 16 maps.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('c5')">
+                    <h3>🟢 C5 - Fully Connected</h3>
+                    <p>120 neurons, each connected to all 16 S4 feature maps. Flattens features for classification.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('f6')">
+                    <h3>🟢 F6 - Fully Connected</h3>
+                    <p>84 neurons in the hidden layer. Uses tanh activation function.</p>
+                </div>
+                <div class="info-card" onclick="showDetail('output')">
+                    <h3>🔴 Output Layer (10)</h3>
+                    <p>Softmax classifier for digits 0-9. Outputs probability distribution over 10 classes.</p>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-cyan);"></div>
+                    <span>Input</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-purple);"></div>
+                    <span>Convolution</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-orange);"></div>
+                    <span>Subsampling</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-green);"></div>
+                    <span>Fully Connected</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--accent-pink);"></div>
+                    <span>Output</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="detail-view" id="detailView" onclick="closeDetail(event)">
+        <div class="detail-content">
+            <button class="detail-close" onclick="closeDetail()">×</button>
+            <h2 class="detail-title" id="detailTitle">Layer Details</h2>
+            <div class="detail-specs" id="detailSpecs"></div>
+        </div>
+    </div>
+
+    <script>
+        const layerData = {
+            input: {
+                title: 'Input Layer (32×32)',
+                specs: [
+                    { label: 'Dimensions', value: '32 × 32 pixels' },
+                    { label: 'Channels', value: '1 (Grayscale)' },
+                    { label: 'Input Range', value: '0-255 (normalized to 0-1)' },
+                    { label: 'Purpose', value: 'Raw pixel input' },
+                    { label: 'Data Format', value: 'MNIST handwritten digits' }
+                ]
+            },
+            c1: {
+                title: 'C1 - Convolution Layer',
+                specs: [
+                    { label: 'Feature Maps', value: '6' },
+                    { label: 'Map Size', value: '28 × 28' },
+                    { label: 'Kernel Size', value: '5 × 5' },
+                    { label: 'Stride', value: '1' },
+                    { label: 'Parameters', value: '~1,560 (6×5×5+6)' },
+                    { label: 'Activation', value: 'Tanh' },
+                    { label: 'Output Size', value: '6 × 28 × 28 = 47,232' }
+                ]
+            },
+            s2: {
+                title: 'S2 - Subsampling Layer',
+                specs: [
+                    { label: 'Feature Maps', value: '6' },
+                    { label: 'Map Size', value: '14 × 14' },
+                    { label: 'Pool Size', value: '2 × 2' },
+                    { label: 'Stride', value: '2' },
+                    { label: 'Pool Type', value: 'Average Pooling' },
+                    { label: 'Output Size', value: '6 × 14 × 14 = 1,176' }
+                ]
+            },
+            c3: {
+                title: 'C3 - Convolution Layer',
+                specs: [
+                    { label: 'Feature Maps', value: '16' },
+                    { label: 'Map Size', value: '10 × 10' },
+                    { label: 'Kernel Size', value: '5 × 5' },
+                    { label: 'Stride', value: '1' },
+                    { label: 'Parameters', value: '~1,516' },
+                    { label: 'Activation', value: 'Tanh' },
+                    { label: 'Connections', value: 'Selective (not all to all)' },
+                    { label: 'Output Size', value: '16 × 10 × 10 = 1,600' }
+                ]
+            },
+            s4: {
+                title: 'S4 - Subsampling Layer',
+                specs: [
+                    { label: 'Feature Maps', value: '16' },
+                    { label: 'Map Size', value: '5 × 5' },
+                    { label: 'Pool Size', value: '2 × 2' },
+                    { label: 'Stride', value: '2' },
+                    { label: 'Pool Type', value: 'Average Pooling' },
+                    { label: 'Output Size', value: '16 × 5 × 5 = 400' }
+                ]
+            },
+            c5: {
+                title: 'C5 - Fully Connected Layer',
+                specs: [
+                    { label: 'Neurons', value: '120' },
+                    { label: 'Connections', value: '400 → 120' },
+                    { label: 'Parameters', value: '120 × 400 + 120 = 48,120' },
+                    { label: 'Activation', value: 'Tanh' },
+                    { label: 'Output Size', value: '120' }
+                ]
+            },
+            f6: {
+                title: 'F6 - Fully Connected Layer',
+                specs: [
+                    { label: 'Neurons', value: '84' },
+                    { label: 'Connections', value: '120 → 84' },
+                    { label: 'Parameters', value: '84 × 120 + 84 = 10,164' },
+                    { label: 'Activation', value: 'Tanh' },
+                    { label: 'Output Size', value: '84' }
+                ]
+            },
+            output: {
+                title: 'Output Layer (10)',
+                specs: [
+                    { label: 'Neurons', value: '10' },
+                    { label: 'Classes', value: 'Digits 0-9' },
+                    { label: 'Connections', value: '84 → 10' },
+                    { label: 'Parameters', value: '10 × 84 + 10 = 850' },
+                    { label: 'Activation', value: 'Softmax' },
+                    { label: 'Output Size', value: '10 (probabilities)' }
+                ]
+            }
+        };
+
+        function showDetail(layerId) {
+            const data = layerData[layerId];
+            if (!data) return;
+
+            document.getElementById('detailTitle').textContent = data.title;
+            
+            const specsHtml = data.specs.map(spec => `
+                <div class="detail-spec">
+                    <span class="detail-spec-label">${spec.label}</span>
+                    <span class="detail-spec-value">${spec.value}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('detailSpecs').innerHTML = specsHtml;
+            document.getElementById('detailView').classList.add('active');
+        }
+
+        function closeDetail(event) {
+            if (event && event.target !== document.getElementById('detailView')) return;
+            document.getElementById('detailView').classList.remove('active');
+        }
+
+        let isAnimating = false;
+
+        function animateFlow() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            const layers = document.querySelectorAll('.layer-box');
+            let delay = 0;
+
+            layers.forEach((layer, index) => {
+                setTimeout(() => {
+                    layer.style.transform = 'scale(1.1)';
+                    layer.style.boxShadow = '0 0 30px var(--accent-cyan)';
+                    
+                    setTimeout(() => {
+                        layer.style.transform = '';
+                        layer.style.boxShadow = '';
+                    }, 400);
+                }, delay);
+                delay += 300;
+            });
+
+            setTimeout(() => {
+                isAnimating = false;
+            }, delay);
+        }
+
+        function resetAnimation() {
+            const layers = document.querySelectorAll('.layer-box');
+            layers.forEach(layer => {
+                layer.style.transform = '';
+                layer.style.boxShadow = '';
+            });
+            isAnimating = false;
+        }
+
+        let labelsVisible = true;
+
+        function toggleLabels() {
+            labelsVisible = !labelsVisible;
+            const details = document.querySelectorAll('.layer-details');
+            details.forEach(d => {
+                d.style.display = labelsVisible ? 'block' : 'none';
+            });
+        }
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetail();
+            }
+            if (e.key === ' ') {
+                e.preventDefault();
+                animateFlow();
+            }
+        });
+    </script>
+</body>
+</html>
