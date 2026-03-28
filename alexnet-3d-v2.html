@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlexNet 3D Architecture - Forward & Backward Propagation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-green: #22c55e;
+            --accent-yellow: #fbbf24;
+            --accent-red: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* 3D Layer with exact dimensions */
+        .layer-3d {
+            perspective: 800px;
+            margin: 0 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .cube-container {
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-15deg) rotateY(25deg);
+            transition: transform 0.3s ease;
+        }
+
+        .cube-container:hover {
+            transform: rotateX(-10deg) rotateY(35deg);
+        }
+
+        .cube-layer {
+            position: absolute;
+            border: 2px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        /* Dynamic sizing based on layer dimensions */
+        .cube-front {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(139, 92, 246, 0.3);
+            border-color: var(--accent-purple);
+        }
+
+        .cube-back {
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .cube-right {
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        .cube-left {
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        .cube-top {
+            background: rgba(139, 92, 246, 0.35);
+        }
+
+        .cube-bottom {
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .cube.conv .cube-layer { border-color: var(--accent-purple); }
+        .cube.conv .cube-front { background: rgba(139, 92, 246, 0.35); }
+        .cube.pool .cube-layer { border-color: var(--accent-orange); }
+        .cube.pool .cube-front { background: rgba(249, 115, 22, 0.35); }
+        .cube.fc .cube-layer { border-color: var(--accent-green); }
+        .cube.fc .cube-front { background: rgba(34, 197, 94, 0.35); }
+        .cube.input .cube-layer { border-color: var(--accent-cyan); }
+        .cube.input .cube-front { background: rgba(0, 212, 255, 0.35); }
+        .cube.output .cube-layer { border-color: var(--accent-pink); }
+        .cube.output .cube-front { background: rgba(236, 72, 153, 0.35); }
+        .cube.lrn .cube-layer { border-color: var(--accent-yellow); }
+        .cube.lrn .cube-front { background: rgba(251, 191, 36, 0.35); }
+
+        /* Layer Info Labels */
+        .layer-info {
+            margin-top: 60px;
+            text-align: center;
+        }
+
+        .layer-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .layer-dims {
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            font-family: 'Courier New', monospace;
+            margin-bottom: 2px;
+        }
+
+        .layer-params {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Dimension annotations in 3D */
+        .dim-label {
+            position: absolute;
+            font-size: 0.55rem;
+            color: var(--text-secondary);
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+
+        .dim-width {
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .dim-height {
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .dim-depth {
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Network Container */
+        .network-container {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding: 40px 20px 60px;
+            min-height: 400px;
+        }
+
+        .network-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .arrow {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin: 0 8px;
+            transform: translateY(-20px);
+        }
+
+        /* GPU Streams */
+        .gpu-streams {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        @media (max-width: 900px) {
+            .gpu-streams { grid-template-columns: 1fr; }
+        }
+
+        .gpu-box {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .gpu-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .gpu-title.gpu1 { color: var(--accent-green); }
+        .gpu-title.gpu2 { color: var(--accent-cyan); }
+
+        .mini-layers {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .mini-layer {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 1px solid;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mini-layer:hover { transform: scale(1.05); }
+        .mini-layer.conv { border-color: var(--accent-purple); background: rgba(139, 92, 246, 0.2); }
+        .mini-layer.pool { border-color: var(--accent-orange); background: rgba(249, 115, 22, 0.2); }
+        .mini-layer.fc { border-color: var(--accent-green); background: rgba(34, 197, 94, 0.2); }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-forward {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            color: white;
+        }
+
+        .btn-backward {
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-orange));
+            color: white;
+        }
+
+        .btn-both {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: white;
+        }
+
+        .btn-stop {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--accent-red);
+        }
+
+        .btn:hover { transform: translateY(-2px); }
+
+        /* Calculation Panel */
+        .calc-panel {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 30px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .calc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .calc-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .calc-title.forward { color: var(--accent-cyan); }
+        .calc-title.backward { color: var(--accent-red); }
+        .calc-title.both { color: var(--accent-purple); }
+
+        .calc-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .calc-card {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .calc-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .calc-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            font-family: 'Courier New', monospace;
+        }
+
+        .calc-formula {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Operation Display */
+        .op-box {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            min-height: 100px;
+        }
+
+        .op-forward {
+            color: var(--accent-cyan);
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 16px;
+        }
+
+        .op-backward {
+            color: var(--accent-red);
+            border-left: 3px solid var(--accent-red);
+            padding-left: 16px;
+        }
+
+        .op-line {
+            margin: 6px 0;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Gradient Flow Visualization */
+        .gradient-viz {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+        }
+
+        .grad-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .grad-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .grad-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            width: 80px;
+        }
+
+        .grad-track {
+            flex: 1;
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .grad-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .grad-fill.forward { background: var(--accent-cyan); }
+        .grad-fill.backward { background: var(--accent-red); }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--bg-tertiary);
+            min-width: 120px;
+        }
+
+        .stat-val {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+        }
+
+        .stat-lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active { opacity: 1; pointer-events: all; }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 32px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title { font-size: 1.3rem; font-weight: 600; }
+        .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.8rem; cursor: pointer; }
+
+        .modal-items { display: grid; gap: 12px; }
+
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .modal-key { color: var(--text-secondary); font-size: 0.85rem; }
+        .modal-val { font-weight: 600; color: var(--accent-cyan); font-family: monospace; }
+
+        .scroll-hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AlexNet 3D Architecture</h1>
+            <p class="subtitle">Layer Dimensions & Forward/Backward Propagation Dynamics</p>
+        </header>
+
+        <div class="controls">
+            <button class="btn btn-forward" onclick="startPropagation('forward')">▶ Forward Pass</button>
+            <button class="btn btn-backward" onclick="startPropagation('backward')">◀ Backward Pass</button>
+            <button class="btn btn-both" onclick="startPropagation('both')">🔄 Full Training</button>
+            <button class="btn btn-stop" onclick="stopPropagation()">⏹ Stop</button>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box"><div class="stat-val">61M</div><div class="stat-lbl">Parameters</div></div>
+            <div class="stat-box"><div class="stat-val">8</div><div class="stat-lbl">Conv Layers</div></div>
+            <div class="stat-box"><div class="stat-val">3</div><div class="stat-lbl">FC Layers</div></div>
+            <div class="stat-box"><div class="stat-val">2</div><div class="stat-lbl">GPUs</div></div>
+            <div class="stat-box"><div class="stat-val">15.3%</div><div class="stat-lbl">Top-5 Error</div></div>
+        </div>
+
+        <div class="network-container">
+            <div class="network-row" id="networkRow">
+                <!-- Input -->
+                <div class="layer-3d" onclick="showLayer('input')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front" style="width: 80px; height: 80px; transform: translateZ(40px);">
+                            <span>227×227</span>
+                            <span style="font-size: 0.5rem; color: var(--accent-cyan);">RGB</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 80px; height: 80px; transform: rotateY(180deg) translateZ(40px);"></div>
+                        <div class="cube-layer cube-right" style="width: 80px; height: 80px; transform: rotateY(90deg) translateZ(40px);"></div>
+                        <div class="cube-layer cube-left" style="width: 80px; height: 80px; transform: rotateY(-90deg) translateZ(40px);"></div>
+                        <div class="cube-layer cube-top" style="width: 80px; height: 80px; transform: rotateX(90deg) translateZ(40px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 80px; height: 80px; transform: rotateX(-90deg) translateZ(40px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Input</div>
+                        <div class="layer-dims">W:227 H:227 D:3</div>
+                        <div class="layer-params">Shape: [227,227,3]</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- Conv1 -->
+                <div class="layer-3d" onclick="showLayer('conv1')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-conv" style="width: 65px; height: 65px; transform: translateZ(32px);">
+                            <span>96</span>
+                            <span style="font-size: 0.45rem;">filters</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 65px; height: 65px; transform: rotateY(180deg) translateZ(32px);"></div>
+                        <div class="cube-layer cube-right" style="width: 65px; height: 65px; transform: rotateY(90deg) translateZ(32px);"></div>
+                        <div class="cube-layer cube-left" style="width: 65px; height: 65px; transform: rotateY(-90deg) translateZ(32px);"></div>
+                        <div class="cube-layer cube-top" style="width: 65px; height: 65px; transform: rotateX(90deg) translateZ(32px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 65px; height: 65px; transform: rotateX(-90deg) translateZ(32px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Conv1</div>
+                        <div class="layer-dims">W:55 H:55 D:96</div>
+                        <div class="layer-params">34,848 params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- MaxPool1 -->
+                <div class="layer-3d" onclick="showLayer('maxpool1')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-pool" style="width: 50px; height: 50px; transform: translateZ(25px);">
+                            <span style="font-size: 0.5rem;">Pool</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 50px; height: 50px; transform: rotateY(180deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-right" style="width: 50px; height: 50px; transform: rotateY(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-left" style="width: 50px; height: 50px; transform: rotateY(-90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-top" style="width: 50px; height: 50px; transform: rotateX(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 50px; height: 50px; transform: rotateX(-90deg) translateZ(25px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">MaxPool1</div>
+                        <div class="layer-dims">W:27 H:27 D:96</div>
+                        <div class="layer-params">3×3 stride 2</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- LRN1 -->
+                <div class="layer-3d" onclick="showLayer('lrn1')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-lrn" style="width: 45px; height: 45px; transform: translateZ(22px);">LRN</div>
+                        <div class="cube-layer cube-back" style="width: 45px; height: 45px; transform: rotateY(180deg) translateZ(22px);"></div>
+                        <div class="cube-layer cube-right" style="width: 45px; height: 45px; transform: rotateY(90deg) translateZ(22px);"></div>
+                        <div class="cube-layer cube-left" style="width: 45px; height: 45px; transform: rotateY(-90deg) translateZ(22px);"></div>
+                        <div class="cube-layer cube-top" style="width: 45px; height: 45px; transform: rotateX(90deg) translateZ(22px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 45px; height: 45px; transform: rotateX(-90deg) translateZ(22px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">LRN1</div>
+                        <div class="layer-dims">W:27 H:27 D:96</div>
+                        <div class="layer-params">k=2, n=5</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-hint">← Scroll horizontally →</div>
+
+        <!-- GPU Streams -->
+        <div class="gpu-streams">
+            <div class="gpu-box">
+                <div class="gpu-title gpu1">🟢 GPU 1 Stream</div>
+                <div class="mini-layers">
+                    <div class="mini-layer conv" onclick="showLayer('conv2')">Conv2</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer pool" onclick="showLayer('maxpool2')">Pool2</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv3')">Conv3</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv4')">Conv4</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv5')">Conv5</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer pool" onclick="showLayer('maxpool3')">Pool3</div>
+                </div>
+            </div>
+            <div class="gpu-box">
+                <div class="gpu-title gpu2">🔵 GPU 2 Stream</div>
+                <div class="mini-layers">
+                    <div class="mini-layer conv" onclick="showLayer('conv2')">Conv2</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer pool" onclick="showLayer('maxpool2')">Pool2</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv3')">Conv3</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv4')">Conv4</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer conv" onclick="showLayer('conv5')">Conv5</div>
+                    <span style="color: var(--text-muted);">→</span>
+                    <div class="mini-layer pool" onclick="showLayer('maxpool3')">Pool3</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FC Layers -->
+        <div class="network-container">
+            <div class="network-row">
+                <div class="layer-3d" onclick="showLayer('flatten')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-fc" style="width: 30px; height: 30px; transform: translateZ(15px);">Flat</div>
+                        <div class="cube-layer cube-back" style="width: 30px; height: 30px; transform: rotateY(180deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-right" style="width: 30px; height: 30px; transform: rotateY(90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-left" style="width: 30px; height: 30px; transform: rotateY(-90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-top" style="width: 30px; height: 30px; transform: rotateX(90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 30px; height: 30px; transform: rotateX(-90deg) translateZ(15px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Flatten</div>
+                        <div class="layer-dims">9216 features</div>
+                        <div class="layer-params">6×6×256</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <div class="layer-3d" onclick="showLayer('fc6')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-fc" style="width: 40px; height: 40px; transform: translateZ(20px);">FC6</div>
+                        <div class="cube-layer cube-back" style="width: 40px; height: 40px; transform: rotateY(180deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-right" style="width: 40px; height: 40px; transform: rotateY(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-left" style="width: 40px; height: 40px; transform: rotateY(-90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-top" style="width: 40px; height: 40px; transform: rotateX(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 40px; height: 40px; transform: rotateX(-90deg) translateZ(20px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">FC6</div>
+                        <div class="layer-dims">4096 neurons</div>
+                        <div class="layer-params">37.7M params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <div class="layer-3d" onclick="showLayer('fc7')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-fc" style="width: 40px; height: 40px; transform: translateZ(20px);">FC7</div>
+                        <div class="cube-layer cube-back" style="width: 40px; height: 40px; transform: rotateY(180deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-right" style="width: 40px; height: 40px; transform: rotateY(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-left" style="width: 40px; height: 40px; transform: rotateY(-90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-top" style="width: 40px; height: 40px; transform: rotateX(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 40px; height: 40px; transform: rotateX(-90deg) translateZ(20px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">FC7</div>
+                        <div class="layer-dims">4096 neurons</div>
+                        <div class="layer-params">16.7M params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <div class="layer-3d" onclick="showLayer('output')">
+                    <div class="cube-container">
+                        <div class="cube-layer cube-front cube-output" style="width: 35px; height: 35px; transform: translateZ(17px);">1000</div>
+                        <div class="cube-layer cube-back" style="width: 35px; height: 35px; transform: rotateY(180deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-right" style="width: 35px; height: 35px; transform: rotateY(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-left" style="width: 35px; height: 35px; transform: rotateY(-90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-top" style="width: 35px; height: 35px; transform: rotateX(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 35px; height: 35px; transform: rotateX(-90deg) translateZ(17px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Output</div>
+                        <div class="layer-dims">10 classes</div>
+                        <div class="layer-params">4.09M params</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculation Panel -->
+        <div class="calc-panel">
+            <div class="calc-header">
+                <h2 class="calc-title" id="calcTitle">⚡ Propagation</h2>
+                <span class="calc-status" id="calcStatus">Ready</span>
+            </div>
+
+            <div class="calc-grid">
+                <div class="calc-card">
+                    <div class="calc-label">Current Layer</div>
+                    <div class="calc-value" id="curLayer">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Input (W×H×D)</div>
+                    <div class="calc-value" id="inDims">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Output (W×H×D)</div>
+                    <div class="calc-value" id="outDims">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Parameters</div>
+                    <div class="calc-value" id="paramCount">-</div>
+                </div>
+            </div>
+
+            <div class="op-box" id="opBox">
+                Click Forward or Backward to start propagation...
+            </div>
+
+            <div class="gradient-viz">
+                <div class="grad-title">📊 Activation & Gradient Flow</div>
+                <div class="grad-bar">
+                    <div class="grad-label">Activation</div>
+                    <div class="grad-track">
+                        <div class="grad-fill forward" id="actBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="grad-bar">
+                    <div class="grad-label">Gradient ↓</div>
+                    <div class="grad-track">
+                        <div class="grad-fill backward" id="gradBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="grad-bar">
+                    <div class="grad-label">Loss ↓</div>
+                    <div class="grad-track">
+                        <div class="grad-fill backward" id="lossBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="modal" onclick="closeModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Layer Details</h2>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-items" id="modalItems"></div>
+        </div>
+    </div>
+
+    <script>
+        const layerData = {
+            input: { name: 'Input', inDims: '-', outDims: '227×227×3', params: '0', 
+                forward: 'x_norm = (x - μ) / σ', backward: '∂L/∂x = ∂L/∂x_norm × 1/σ' },
+            conv1: { name: 'Conv1', inDims: '227×227×3', outDims: '55×55×96', params: '34,848',
+                forward: 'y[i,j,k] = ReLU(Σ W×x + b)', backward: '∂L/∂W += ∂L/∂y × x; ∂L/∂b += Σ∂L/∂y' },
+            maxpool1: { name: 'MaxPool1', inDims: '55×55×96', outDims: '27×27×96', params: '0',
+                forward: 'y = max(3×3 window)', backward: '∂L/∂x = upsample(∂L/∂y) to max positions' },
+            lrn1: { name: 'LRN1', inDims: '27×27×96', outDims: '27×27×96', params: '0',
+                forward: 'b = a / (k + α∑a²)^β', backward: '∂L/∂a computed via chain rule' },
+            conv2: { name: 'Conv2', inDims: '27×27×96', outDims: '27×27×256', params: '614,656',
+                forward: '5×5 conv, 256 filters', backward: '∂L/∂W = conv(∂L/∂y, x); ∂L/∂x = conv(∂L/∂y, flip(W))' },
+            maxpool2: { name: 'MaxPool2', inDims: '27×27×256', outDims: '13×13×256', params: '0',
+                forward: '3×3 stride 2 pooling', backward: 'Gradient routed to max positions' },
+            conv3: { name: 'Conv3', inDims: '13×13×256', outDims: '13×13×384', params: '885,504',
+                forward: '3×3 conv, 384 filters', backward: '∂L/∂W = conv(∂L/∂y, x)' },
+            conv4: { name: 'Conv4', inDims: '13×13×384', outDims: '13×13×384', params: '1,327,104',
+                forward: '3×3 conv, 384 filters', backward: 'Cross-GPU gradient sync' },
+            conv5: { name: 'Conv5', inDims: '13×13×384', outDims: '13×13×256', params: '884,992',
+                forward: '3×3 conv, 256 filters', backward: '∂L/∂W = conv(∂L/∂y, x)' },
+            maxpool3: { name: 'MaxPool3', inDims: '13×13×256', outDims: '6×6×256', params: '0',
+                forward: '3×3 stride 2 pooling', backward: 'Gradient to max positions' },
+            flatten: { name: 'Flatten', inDims: '6×6×256', outDims: '9216', params: '0',
+                forward: 'x_flat = reshape(x, [1, -1])', backward: '∂L/∂x = reshape(∂L/∂x_flat, shape)' },
+            fc6: { name: 'FC6', inDims: '9216', outDims: '4096', params: '37,748,736',
+                forward: 'y = ReLU(W·x + b), W∈ℝ⁴⁰⁹⁶×⁹²¹⁶', backward: '∂L/∂W = ∂L/∂y × xᵀ; ∂L/∂x = Wᵀ × ∂L/∂y' },
+            fc7: { name: 'FC7', inDims: '4096', outDims: '4096', params: '16,777,216',
+                forward: 'y = ReLU(W·x + b)', backward: '∂L/∂W += ∂L/∂y × xᵀ + λW (L2 reg)' },
+            output: { name: 'Output', inDims: '4096', outDims: '10', params: '4,097,000',
+                forward: 'p = softmax(W·x + b); L = -log(p[target])', backward: '∂L/∂z = p - y_onehot; ∂L/∂W += ∂L/∂z × xᵀ' }
+        };
+
+        const layerOrder = ['input','conv1','maxpool1','lrn1','conv2','maxpool2','conv3','conv4','conv5','maxpool3','flatten','fc6','fc7','output'];
+        const reverseOrder = [...layerOrder].reverse();
+
+        let isRunning = false;
+        let propagationType = 'none';
+        let interval = null;
+        let currentIdx = 0;
+
+        function showLayer(id) {
+            const d = layerData[id];
+            document.getElementById('modalTitle').textContent = d.name;
+            document.getElementById('modalItems').innerHTML = `
+                <div class="modal-item"><span class="modal-key">Input</span><span class="modal-val">${d.inDims}</span></div>
+                <div class="modal-item"><span class="modal-key">Output</span><span class="modal-val">${d.outDims}</span></div>
+                <div class="modal-item"><span class="modal-key">Parameters</span><span class="modal-val">${d.params}</span></div>
+                <div class="modal-item"><span class="modal-key">Forward</span><span class="modal-val" style="font-size: 0.7rem;">${d.forward}</span></div>
+                <div class="modal-item"><span class="modal-key">Backward</span><span class="modal-val" style="font-size: 0.7rem;">${d.backward}</span></div>
+            `;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== document.getElementById('modal')) return;
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function updateDisplay(id, type) {
+            const d = layerData[id];
+            document.getElementById('curLayer').textContent = d.name;
+            document.getElementById('inDims').textContent = d.inDims;
+            document.getElementById('outDims').textContent = d.outDims;
+            document.getElementById('paramCount').textContent = d.params;
+
+            const titleEl = document.getElementById('calcTitle');
+            const opBox = document.getElementById('opBox');
+
+            if (type === 'forward') {
+                titleEl.className = 'calc-title forward';
+                titleEl.textContent = '⬆ Forward Pass';
+                opBox.className = 'op-box op-forward';
+                opBox.innerHTML = `<div class="op-line">▶ ${d.forward}</div><div class="op-line" style="animation-delay: 0.3s;">Input: ${d.inDims} → Output: ${d.outDims}</div>`;
+            } else if (type === 'backward') {
+                titleEl.className = 'calc-title backward';
+                titleEl.textContent = '⬇ Backward Pass';
+                opBox.className = 'op-box op-backward';
+                opBox.innerHTML = `<div class="op-line">◀ ${d.backward}</div><div class="op-line" style="animation-delay: 0.3s;">Gradients flowing back from ${d.outDims} to ${d.inDims}</div>`;
+            }
+
+            const progress = ((currentIdx + 1) / layerOrder.length) * 100;
+            document.getElementById('actBar').style.width = type === 'forward' ? `${progress}%` : `${100 - progress}%`;
+            document.getElementById('gradBar').style.width = type === 'backward' ? `${progress}%` : `${100 - progress}%`;
+            document.getElementById('lossBar').style.width = type === 'backward' ? `${progress * 0.8}%` : '0%';
+        }
+
+        function startPropagation(type) {
+            if (isRunning) return;
+            isRunning = true;
+            propagationType = type;
+            currentIdx = 0;
+            document.getElementById('calcStatus').textContent = type === 'forward' ? 'Forward propagating...' : type === 'backward' ? 'Backward propagating...' : 'Training...';
+
+            const order = type === 'backward' ? reverseOrder : layerOrder;
+            
+            updateDisplay(order[currentIdx], type);
+
+            interval = setInterval(() => {
+                currentIdx++;
+                if (currentIdx >= order.length) {
+                    if (type === 'both') {
+                        currentIdx = 0;
+                    } else {
+                        currentIdx = 0;
+                    }
+                }
+                updateDisplay(order[currentIdx], type === 'both' ? (currentIdx < layerOrder.length ? 'forward' : 'backward') : type);
+            }, 1200);
+        }
+
+        function stopPropagation() {
+            isRunning = false;
+            if (interval) clearInterval(interval);
+            document.getElementById('calcStatus').textContent = 'Stopped';
+            document.getElementById('calcTitle').textContent = '⚡ Propagation';
+            document.getElementById('opBox').textContent = 'Stopped';
+            document.getElementById('actBar').style.width = '0%';
+            document.getElementById('gradBar').style.width = '0%';
+            document.getElementById('lossBar').style.width = '0%';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === ' ') { e.preventDefault(); startPropagation('forward'); }
+            if (e.key === 'b') startPropagation('backward');
+            if (e.key === 's') stopPropagation();
+        });
+    </script>
+</body>
+</html>

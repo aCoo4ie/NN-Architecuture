@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeNet-5 3D Architecture - Forward & Backward Propagation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --accent-cyan: #00d4ff;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-orange: #f97316;
+            --accent-green: #22c55e;
+            --accent-yellow: #fbbf24;
+            --accent-red: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .year-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        /* 3D Layer with exact dimensions - NO ROTATION */
+        .layer-3d {
+            perspective: 800px;
+            margin: 0 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .cube-container {
+            position: relative;
+            transform-style: preserve-3d;
+            /* Fixed 3D perspective, no rotation */
+            transform: rotateX(-15deg) rotateY(25deg);
+            transition: none; /* No transition to prevent rotation */
+        }
+
+        /* Static 3D cube faces */
+        .cube-layer {
+            position: absolute;
+            border: 2px solid;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* Face positioning */
+        .cube-front {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cube-back { }
+        .cube-right { }
+        .cube-left { }
+        .cube-top { }
+        .cube-bottom { }
+
+        /* Layer type colors */
+        .cube.conv .cube-layer { border-color: var(--accent-purple); }
+        .cube.conv .cube-front { background: rgba(139, 92, 246, 0.35); }
+        .cube.pool .cube-layer { border-color: var(--accent-orange); }
+        .cube.pool .cube-front { background: rgba(249, 115, 22, 0.35); }
+        .cube.fc .cube-layer { border-color: var(--accent-green); }
+        .cube.fc .cube-front { background: rgba(34, 197, 94, 0.35); }
+        .cube.input .cube-layer { border-color: var(--accent-cyan); }
+        .cube.input .cube-front { background: rgba(0, 212, 255, 0.35); }
+        .cube.output .cube-layer { border-color: var(--accent-pink); }
+        .cube.output .cube-front { background: rgba(236, 72, 153, 0.35); }
+
+        /* Layer info below cube */
+        .layer-info {
+            margin-top: 50px;
+            text-align: center;
+        }
+
+        .layer-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .layer-dims {
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            font-family: 'Courier New', monospace;
+            margin-bottom: 2px;
+        }
+
+        .layer-params {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        /* Network container */
+        .network-container {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding: 40px 20px 60px;
+            min-height: 350px;
+        }
+
+        .network-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+
+        .arrow {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin: 0 8px;
+            transform: translateY(-20px);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-forward {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            color: white;
+        }
+
+        .btn-backward {
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-orange));
+            color: white;
+        }
+
+        .btn-both {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: white;
+        }
+
+        .btn-stop {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--accent-red);
+        }
+
+        .btn:hover { transform: translateY(-2px); }
+
+        /* Calculation Panel */
+        .calc-panel {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 30px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .calc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .calc-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .calc-title.forward { color: var(--accent-cyan); }
+        .calc-title.backward { color: var(--accent-red); }
+        .calc-title.both { color: var(--accent-purple); }
+
+        .calc-status {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .calc-card {
+            background: var(--bg-tertiary);
+            padding: 16px;
+            border-radius: 10px;
+            border-left: 3px solid var(--accent-purple);
+        }
+
+        .calc-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .calc-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            font-family: 'Courier New', monospace;
+        }
+
+        .calc-formula {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Operation Display */
+        .op-box {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            min-height: 100px;
+        }
+
+        .op-forward {
+            color: var(--accent-cyan);
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 16px;
+        }
+
+        .op-backward {
+            color: var(--accent-red);
+            border-left: 3px solid var(--accent-red);
+            padding-left: 16px;
+        }
+
+        .op-line {
+            margin: 6px 0;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Gradient Flow Visualization */
+        .gradient-viz {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+        }
+
+        .grad-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .grad-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .grad-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            width: 80px;
+        }
+
+        .grad-track {
+            flex: 1;
+            height: 8px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .grad-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .grad-fill.forward { background: var(--accent-cyan); }
+        .grad-fill.backward { background: var(--accent-red); }
+
+        /* Stats */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-box {
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--bg-tertiary);
+            min-width: 120px;
+        }
+
+        .stat-val {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-lbl {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active { opacity: 1; pointer-events: all; }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 32px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title { font-size: 1.3rem; font-weight: 600; }
+        .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 1.8rem; cursor: pointer; }
+
+        .modal-items { display: grid; gap: 12px; }
+
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .modal-key { color: var(--text-secondary); font-size: 0.85rem; }
+        .modal-val { font-weight: 600; color: var(--accent-cyan); font-family: monospace; }
+
+        .scroll-hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+
+        /* 3D Volume Examples */
+        .volume-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .volume-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--bg-tertiary);
+            text-align: center;
+        }
+
+        .volume-card h3 {
+            font-size: 0.95rem;
+            color: var(--accent-cyan);
+            margin-bottom: 12px;
+        }
+
+        .volume-3d {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-15deg) rotateY(25deg);
+        }
+
+        .vol-face {
+            position: absolute;
+            border: 1.5px solid;
+            background: rgba(139, 92, 246, 0.25);
+        }
+
+        .vol-front { width: 60px; height: 60px; transform: translateZ(30px); border-color: var(--accent-purple); }
+        .vol-back { width: 60px; height: 60px; transform: rotateY(180deg) translateZ(30px); border-color: var(--accent-purple); }
+        .vol-right { width: 60px; height: 60px; transform: rotateY(90deg) translateZ(30px); border-color: var(--accent-purple); }
+        .vol-left { width: 60px; height: 60px; transform: rotateY(-90deg) translateZ(30px); border-color: var(--accent-purple); }
+        .vol-top { width: 60px; height: 60px; transform: rotateX(90deg) translateZ(30px); border-color: var(--accent-purple); }
+        .vol-bottom { width: 60px; height: 60px; transform: rotateX(-90deg) translateZ(30px); border-color: var(--accent-purple); }
+
+        .volume-info {
+            margin-top: 12px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>LeNet-5 3D Architecture</h1>
+            <p class="subtitle">Layer Dimensions & Forward/Backward Propagation Dynamics</p>
+            <span class="year-badge">1998 • MNIST Handwritten Digits</span>
+        </header>
+
+        <div class="controls">
+            <button class="btn btn-forward" onclick="startPropagation('forward')">▶ Forward Pass</button>
+            <button class="btn btn-backward" onclick="startPropagation('backward')">◀ Backward Pass</button>
+            <button class="btn btn-both" onclick="startPropagation('both')">🔄 Full Training</button>
+            <button class="btn btn-stop" onclick="stopPropagation()">⏹ Stop</button>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box"><div class="stat-val">60K</div><div class="stat-lbl">Parameters</div></div>
+            <div class="stat-box"><div class="stat-val">5</div><div class="stat-lbl">Conv Layers</div></div>
+            <div class="stat-box"><div class="stat-val">3</div><div class="stat-lbl">FC Layers</div></div>
+            <div class="stat-box"><div class="stat-val">MNIST</div><div class="stat-lbl">Dataset</div></div>
+            <div class="stat-box"><div class="stat-val">99.2%</div><div class="stat-lbl">Accuracy</div></div>
+        </div>
+
+        <!-- 3D Network - Static (no rotation) -->
+        <div class="network-container">
+            <div class="network-row">
+                <!-- Input -->
+                <div class="layer-3d" onclick="showLayer('input')">
+                    <div class="cube-container cube input">
+                        <div class="cube-layer cube-front" style="width: 70px; height: 70px; transform: translateZ(35px);">
+                            <span>32×32</span>
+                            <span style="font-size: 0.45rem; color: var(--accent-cyan);">Grayscale</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 70px; height: 70px; transform: rotateY(180deg) translateZ(35px);"></div>
+                        <div class="cube-layer cube-right" style="width: 70px; height: 70px; transform: rotateY(90deg) translateZ(35px);"></div>
+                        <div class="cube-layer cube-left" style="width: 70px; height: 70px; transform: rotateY(-90deg) translateZ(35px);"></div>
+                        <div class="cube-layer cube-top" style="width: 70px; height: 70px; transform: rotateX(90deg) translateZ(35px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 70px; height: 70px; transform: rotateX(-90deg) translateZ(35px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Input</div>
+                        <div class="layer-dims">W:32 H:32 D:1</div>
+                        <div class="layer-params">Shape: [32,32,1]</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- C1 Conv -->
+                <div class="layer-3d" onclick="showLayer('c1')">
+                    <div class="cube-container cube conv">
+                        <div class="cube-layer cube-front" style="width: 60px; height: 60px; transform: translateZ(30px);">
+                            <span>C1</span>
+                            <span style="font-size: 0.45rem;">6 maps</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 60px; height: 60px; transform: rotateY(180deg) translateZ(30px);"></div>
+                        <div class="cube-layer cube-right" style="width: 60px; height: 60px; transform: rotateY(90deg) translateZ(30px);"></div>
+                        <div class="cube-layer cube-left" style="width: 60px; height: 60px; transform: rotateY(-90deg) translateZ(30px);"></div>
+                        <div class="cube-layer cube-top" style="width: 60px; height: 60px; transform: rotateX(90deg) translateZ(30px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 60px; height: 60px; transform: rotateX(-90deg) translateZ(30px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Conv1</div>
+                        <div class="layer-dims">W:28 H:28 D:6</div>
+                        <div class="layer-params">1,560 params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- S2 Pool -->
+                <div class="layer-3d" onclick="showLayer('s2')">
+                    <div class="cube-container cube pool">
+                        <div class="cube-layer cube-front" style="width: 50px; height: 50px; transform: translateZ(25px);">
+                            <span style="font-size: 0.5rem;">S2</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 50px; height: 50px; transform: rotateY(180deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-right" style="width: 50px; height: 50px; transform: rotateY(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-left" style="width: 50px; height: 50px; transform: rotateY(-90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-top" style="width: 50px; height: 50px; transform: rotateX(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 50px; height: 50px; transform: rotateX(-90deg) translateZ(25px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Pool1</div>
+                        <div class="layer-dims">W:14 H:14 D:6</div>
+                        <div class="layer-params">2×2 stride 2</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- C3 Conv -->
+                <div class="layer-3d" onclick="showLayer('c3')">
+                    <div class="cube-container cube conv">
+                        <div class="cube-layer cube-front" style="width: 50px; height: 50px; transform: translateZ(25px);">
+                            <span>C3</span>
+                            <span style="font-size: 0.45rem;">16 maps</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 50px; height: 50px; transform: rotateY(180deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-right" style="width: 50px; height: 50px; transform: rotateY(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-left" style="width: 50px; height: 50px; transform: rotateY(-90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-top" style="width: 50px; height: 50px; transform: rotateX(90deg) translateZ(25px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 50px; height: 50px; transform: rotateX(-90deg) translateZ(25px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Conv2</div>
+                        <div class="layer-dims">W:10 H:10 D:16</div>
+                        <div class="layer-params">1,516 params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- S4 Pool -->
+                <div class="layer-3d" onclick="showLayer('s4')">
+                    <div class="cube-container cube pool">
+                        <div class="cube-layer cube-front" style="width: 40px; height: 40px; transform: translateZ(20px);">
+                            <span style="font-size: 0.5rem;">S4</span>
+                        </div>
+                        <div class="cube-layer cube-back" style="width: 40px; height: 40px; transform: rotateY(180deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-right" style="width: 40px; height: 40px; transform: rotateY(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-left" style="width: 40px; height: 40px; transform: rotateY(-90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-top" style="width: 40px; height: 40px; transform: rotateX(90deg) translateZ(20px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 40px; height: 40px; transform: rotateX(-90deg) translateZ(20px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Pool2</div>
+                        <div class="layer-dims">W:5 H:5 D:16</div>
+                        <div class="layer-params">2×2 stride 2</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- C5 FC -->
+                <div class="layer-3d" onclick="showLayer('c5')">
+                    <div class="cube-container cube fc">
+                        <div class="cube-layer cube-front" style="width: 35px; height: 35px; transform: translateZ(17px);">C5</div>
+                        <div class="cube-layer cube-back" style="width: 35px; height: 35px; transform: rotateY(180deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-right" style="width: 35px; height: 35px; transform: rotateY(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-left" style="width: 35px; height: 35px; transform: rotateY(-90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-top" style="width: 35px; height: 35px; transform: rotateX(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 35px; height: 35px; transform: rotateX(-90deg) translateZ(17px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">FC1</div>
+                        <div class="layer-dims">120 neurons</div>
+                        <div class="layer-params">48,120 params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- F6 FC -->
+                <div class="layer-3d" onclick="showLayer('f6')">
+                    <div class="cube-container cube fc">
+                        <div class="cube-layer cube-front" style="width: 35px; height: 35px; transform: translateZ(17px);">F6</div>
+                        <div class="cube-layer cube-back" style="width: 35px; height: 35px; transform: rotateY(180deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-right" style="width: 35px; height: 35px; transform: rotateY(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-left" style="width: 35px; height: 35px; transform: rotateY(-90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-top" style="width: 35px; height: 35px; transform: rotateX(90deg) translateZ(17px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 35px; height: 35px; transform: rotateX(-90deg) translateZ(17px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">FC2</div>
+                        <div class="layer-dims">84 neurons</div>
+                        <div class="layer-params">10,164 params</div>
+                    </div>
+                </div>
+
+                <span class="arrow">→</span>
+
+                <!-- Output -->
+                <div class="layer-3d" onclick="showLayer('output')">
+                    <div class="cube-container cube output">
+                        <div class="cube-layer cube-front" style="width: 30px; height: 30px; transform: translateZ(15px);">10</div>
+                        <div class="cube-layer cube-back" style="width: 30px; height: 30px; transform: rotateY(180deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-right" style="width: 30px; height: 30px; transform: rotateY(90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-left" style="width: 30px; height: 30px; transform: rotateY(-90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-top" style="width: 30px; height: 30px; transform: rotateX(90deg) translateZ(15px);"></div>
+                        <div class="cube-layer cube-bottom" style="width: 30px; height: 30px; transform: rotateX(-90deg) translateZ(15px);"></div>
+                    </div>
+                    <div class="layer-info">
+                        <div class="layer-name">Output</div>
+                        <div class="layer-dims">10 classes</div>
+                        <div class="layer-params">850 params</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-hint">← Scroll horizontally →</div>
+
+        <!-- 3D Volume Section -->
+        <div class="volume-section">
+            <div class="volume-card">
+                <h3>C1 Feature Maps (6)</h3>
+                <div class="volume-3d">
+                    <div class="vol-face vol-front"></div>
+                    <div class="vol-face vol-back"></div>
+                    <div class="vol-face vol-right"></div>
+                    <div class="vol-face vol-left"></div>
+                    <div class="vol-face vol-top"></div>
+                    <div class="vol-face vol-bottom"></div>
+                </div>
+                <div class="volume-info">W:28 H:28 D:6</div>
+            </div>
+
+            <div class="volume-card">
+                <h3>S2 Subsampled (6)</h3>
+                <div class="volume-3d" style="transform: rotateX(-15deg) rotateY(25deg);">
+                    <div class="vol-face vol-front" style="background: rgba(249, 115, 22, 0.25); border-color: var(--accent-orange);"></div>
+                    <div class="vol-face vol-back"></div>
+                    <div class="vol-face vol-right"></div>
+                    <div class="vol-face vol-left"></div>
+                    <div class="vol-face vol-top"></div>
+                    <div class="vol-face vol-bottom"></div>
+                </div>
+                <div class="volume-info">W:14 H:14 D:6</div>
+            </div>
+
+            <div class="volume-card">
+                <h3>C3 Feature Maps (16)</h3>
+                <div class="volume-3d">
+                    <div class="vol-face vol-front"></div>
+                    <div class="vol-face vol-back"></div>
+                    <div class="vol-face vol-right"></div>
+                    <div class="vol-face vol-left"></div>
+                    <div class="vol-face vol-top"></div>
+                    <div class="vol-face vol-bottom"></div>
+                </div>
+                <div class="volume-info">W:10 H:10 D:16</div>
+            </div>
+
+            <div class="volume-card">
+                <h3>S4 Subsampled (16)</h3>
+                <div class="volume-3d" style="transform: rotateX(-15deg) rotateY(25deg);">
+                    <div class="vol-face vol-front" style="background: rgba(249, 115, 22, 0.25); border-color: var(--accent-orange);"></div>
+                    <div class="vol-face vol-back"></div>
+                    <div class="vol-face vol-right"></div>
+                    <div class="vol-face vol-left"></div>
+                    <div class="vol-face vol-top"></div>
+                    <div class="vol-face vol-bottom"></div>
+                </div>
+                <div class="volume-info">W:5 H:5 D:16</div>
+            </div>
+        </div>
+
+        <!-- Calculation Panel -->
+        <div class="calc-panel">
+            <div class="calc-header">
+                <h2 class="calc-title" id="calcTitle">⚡ Propagation</h2>
+                <span class="calc-status" id="calcStatus">Ready</span>
+            </div>
+
+            <div class="calc-grid">
+                <div class="calc-card">
+                    <div class="calc-label">Current Layer</div>
+                    <div class="calc-value" id="curLayer">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Input (W×H×D)</div>
+                    <div class="calc-value" id="inDims">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Output (W×H×D)</div>
+                    <div class="calc-value" id="outDims">-</div>
+                </div>
+                <div class="calc-card">
+                    <div class="calc-label">Parameters</div>
+                    <div class="calc-value" id="paramCount">-</div>
+                </div>
+            </div>
+
+            <div class="op-box" id="opBox">
+                Click Forward or Backward to start propagation...
+            </div>
+
+            <div class="gradient-viz">
+                <div class="grad-title">📊 Activation & Gradient Flow</div>
+                <div class="grad-bar">
+                    <div class="grad-label">Activation</div>
+                    <div class="grad-track">
+                        <div class="grad-fill forward" id="actBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="grad-bar">
+                    <div class="grad-label">Gradient ↓</div>
+                    <div class="grad-track">
+                        <div class="grad-fill backward" id="gradBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="grad-bar">
+                    <div class="grad-label">Loss ↓</div>
+                    <div class="grad-track">
+                        <div class="grad-fill backward" id="lossBar" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="modal" onclick="closeModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Layer Details</h2>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-items" id="modalItems"></div>
+        </div>
+    </div>
+
+    <script>
+        const layerData = {
+            input: { 
+                name: 'Input', 
+                inDims: '-', 
+                outDims: '32×32×1', 
+                params: '0',
+                kernel: '-',
+                forward: 'x_norm = (x - 127.5) / 127.5 → Normalize pixels to [0,1]',
+                backward: '∂L/∂x = ∂L/∂x_norm × 1/127.5 → Backprop normalization gradient'
+            },
+            c1: { 
+                name: 'C1 Conv1', 
+                inDims: '32×32×1', 
+                outDims: '28×28×6', 
+                params: '1,560',
+                kernel: '5×5, stride 1',
+                forward: 'y[i,j,k] = tanh(Σ W × x + b) → 6 filters extract local features',
+                backward: '∂L/∂W += ∂L/∂y × xᵀ; ∂L/∂x = conv(∂L/∂y, flip(W))'
+            },
+            s2: { 
+                name: 'S2 Pool1', 
+                inDims: '28×28×6', 
+                outDims: '14×14×6', 
+                params: '12',
+                kernel: '2×2, stride 2',
+                forward: 'y = 0.25 × Σ(2×2 region) + bias → Average pooling reduces spatial',
+                backward: '∂L/∂x = upsample(∂L/∂y) / 4 → Gradient distributed evenly'
+            },
+            c3: { 
+                name: 'C3 Conv2', 
+                inDims: '14×14×6', 
+                outDims: '10×10×16', 
+                params: '1,516',
+                kernel: '5×5, stride 1',
+                forward: 'y = tanh(Σ W × x + b) → 16 filters, selective S2 connections',
+                backward: '∂L/∂W = conv(∂L/∂y, x) for each S2→C3 connection'
+            },
+            s4: { 
+                name: 'S4 Pool2', 
+                inDims: '10×10×16', 
+                outDims: '5×5×16', 
+                params: '32',
+                kernel: '2×2, stride 2',
+                forward: 'y = 0.25 × Σ(2×2 region) + bias → Final spatial reduction',
+                backward: '∂L/∂x = upsample(∂L/∂y) / 4 → Pooling gradient'
+            },
+            c5: { 
+                name: 'C5 FC1', 
+                inDims: '5×5×16', 
+                outDims: '120', 
+                params: '48,120',
+                kernel: 'Fully connected',
+                forward: 'y = tanh(W·x + b), W ∈ ℝ¹²⁰×⁴⁰⁰ → Flatten to 120 neurons',
+                backward: '∂L/∂W = ∂L/∂y × xᵀ; ∂L/∂x = Wᵀ × ∂L/∂y'
+            },
+            f6: { 
+                name: 'F6 FC2', 
+                inDims: '120', 
+                outDims: '84', 
+                params: '10,164',
+                kernel: 'Fully connected',
+                forward: 'y = tanh(W·x + b), W ∈ ℝ⁸⁴×¹²⁰ → 84 hidden units',
+                backward: '∂L/∂W += ∂L/∂y × xᵀ + λW → L2 regularization'
+            },
+            output: { 
+                name: 'Output', 
+                inDims: '84', 
+                outDims: '10', 
+                params: '850',
+                kernel: 'RBF Classifier',
+                forward: 'y[i] = -||x - w_i||² → RBF distance to prototype weights',
+                backward: '∂L/∂w_i = 2(x - w_i)·∂L/∂y[i] → Update prototypes'
+            }
+        };
+
+        const layerOrder = ['input','c1','s2','c3','s4','c5','f6','output'];
+        const reverseOrder = [...layerOrder].reverse();
+
+        let isRunning = false;
+        let propagationType = 'none';
+        let interval = null;
+        let currentIdx = 0;
+
+        function showLayer(id) {
+            const d = layerData[id];
+            document.getElementById('modalTitle').textContent = d.name;
+            document.getElementById('modalItems').innerHTML = `
+                <div class="modal-item"><span class="modal-key">Input Dims</span><span class="modal-val">${d.inDims}</span></div>
+                <div class="modal-item"><span class="modal-key">Output Dims</span><span class="modal-val">${d.outDims}</span></div>
+                <div class="modal-item"><span class="modal-key">Kernel</span><span class="modal-val">${d.kernel}</span></div>
+                <div class="modal-item"><span class="modal-key">Parameters</span><span class="modal-val">${d.params}</span></div>
+                <div class="modal-item"><span class="modal-key">Forward</span><span class="modal-val" style="font-size: 0.65rem;">${d.forward}</span></div>
+                <div class="modal-item"><span class="modal-key">Backward</span><span class="modal-val" style="font-size: 0.65rem;">${d.backward}</span></div>
+            `;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== document.getElementById('modal')) return;
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        function updateDisplay(id, type) {
+            const d = layerData[id];
+            document.getElementById('curLayer').textContent = d.name;
+            document.getElementById('inDims').textContent = d.inDims;
+            document.getElementById('outDims').textContent = d.outDims;
+            document.getElementById('paramCount').textContent = d.params;
+
+            const titleEl = document.getElementById('calcTitle');
+            const opBox = document.getElementById('opBox');
+
+            if (type === 'forward') {
+                titleEl.className = 'calc-title forward';
+                titleEl.textContent = '⬆ Forward Pass';
+                opBox.className = 'op-box op-forward';
+                opBox.innerHTML = `
+                    <div class="op-line">▶ ${d.forward}</div>
+                    <div class="op-line" style="animation-delay: 0.3s;">📐 ${d.kernel} → Output: ${d.outDims}</div>
+                `;
+            } else if (type === 'backward') {
+                titleEl.className = 'calc-title backward';
+                titleEl.textContent = '⬇ Backward Pass';
+                opBox.className = 'op-box op-backward';
+                opBox.innerHTML = `
+                    <div class="op-line">◀ ${d.backward}</div>
+                    <div class="op-line" style="animation-delay: 0.3s;">📐 Grad: ${d.outDims} → ${d.inDims}</div>
+                `;
+            }
+
+            const progress = ((currentIdx + 1) / layerOrder.length) * 100;
+            document.getElementById('actBar').style.width = type === 'forward' ? `${progress}%` : `${100 - progress}%`;
+            document.getElementById('gradBar').style.width = type === 'backward' ? `${progress}%` : `${100 - progress}%`;
+            document.getElementById('lossBar').style.width = type === 'backward' ? `${progress * 0.8}%` : '0%';
+        }
+
+        function startPropagation(type) {
+            if (isRunning) return;
+            isRunning = true;
+            propagationType = type;
+            currentIdx = 0;
+            document.getElementById('calcStatus').textContent = type === 'forward' ? 'Forward propagating...' : type === 'backward' ? 'Backward propagating...' : 'Training...';
+
+            const order = type === 'backward' ? reverseOrder : layerOrder;
+            
+            updateDisplay(order[currentIdx], type);
+
+            interval = setInterval(() => {
+                currentIdx++;
+                if (currentIdx >= order.length) {
+                    currentIdx = 0;
+                }
+                updateDisplay(order[currentIdx], type);
+            }, 1200);
+        }
+
+        function stopPropagation() {
+            isRunning = false;
+            if (interval) clearInterval(interval);
+            document.getElementById('calcStatus').textContent = 'Stopped';
+            document.getElementById('calcTitle').textContent = '⚡ Propagation';
+            document.getElementById('opBox').textContent = 'Stopped';
+            document.getElementById('actBar').style.width = '0%';
+            document.getElementById('gradBar').style.width = '0%';
+            document.getElementById('lossBar').style.width = '0%';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === ' ') { e.preventDefault(); startPropagation('forward'); }
+            if (e.key === 'b') startPropagation('backward');
+            if (e.key === 's') stopPropagation();
+        });
+    </script>
+</body>
+</html>
